@@ -57,6 +57,53 @@ func TestImagesFilterMultiReference(t *testing.T) {
 	}
 }
 
+func TestImagesFilterUntil(t *testing.T) {
+	ctx := setupTest(t)
+
+	client := testEnv.APIClient()
+
+	name := strings.ToLower(t.Name())
+
+	imgs := make([]string, 5)
+	var olderUntil string
+	var laterUntil string
+	for i := 0; i < 5; i++ {
+		if i > 0 {
+			time.Sleep(time.Millisecond)
+		}
+		ctrName := fmt.Sprintf("%s%d", name, i)
+		ctr := container.Create(ctx, t, client, container.WithName(ctrName))
+		id, err := client.ContainerCommit(ctx, ctr, containertypes.CommitOptions{Reference: ctrName})
+		assert.NilError(t, err)
+		imgs[i] = id.ID
+		if i == 3 {
+			res, err := client.ContainerInspect(ctx, ctr)
+			assert.NilError(t, err)
+			olderUntil = res.Created
+		} else if i == 4 {
+			res, err := client.ContainerInspect(ctx, ctr)
+			assert.NilError(t, err)
+			laterUntil = res.Created
+		}
+	}
+
+	filter := filters.NewArgs(
+		filters.Arg("since", imgs[0]),
+		filters.Arg("until", olderUntil),
+		filters.Arg("until", laterUntil),
+		filters.Arg("before", imgs[len(imgs)-1]),
+	)
+	list, err := client.ImageList(ctx, types.ImageListOptions{Filters: filter})
+	assert.NilError(t, err)
+
+	var listedIDs []string
+	for _, i := range list {
+		t.Logf("ImageList: ID=%v RepoTags=%v", i.ID, i.RepoTags)
+		listedIDs = append(listedIDs, i.ID)
+	}
+	assert.DeepEqual(t, listedIDs, imgs[1:3], cmpopts.SortSlices(func(a, b string) bool { return a < b }))
+}
+
 func TestImagesFilterBeforeSince(t *testing.T) {
 	ctx := setupTest(t)
 
