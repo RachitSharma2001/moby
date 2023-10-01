@@ -10,6 +10,7 @@ import (
 	"github.com/distribution/reference"
 	"github.com/docker/docker/api/types"
 	imagetypes "github.com/docker/docker/api/types/image"
+	timetypes "github.com/docker/docker/api/types/time"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
@@ -21,6 +22,7 @@ var acceptedImageFilterTags = map[string]bool{
 	"before":    true,
 	"since":     true,
 	"reference": true,
+	"until":     true,
 }
 
 // byCreated is a temporary type used to sort a list of images by creation
@@ -42,7 +44,7 @@ func (i *ImageService) Images(ctx context.Context, opts types.ImageListOptions) 
 		return nil, err
 	}
 
-	var beforeFilter, sinceFilter time.Time
+	var beforeFilter, untilFilter, sinceFilter time.Time
 	err = opts.Filters.WalkValues("before", func(value string) error {
 		img, err := i.GetImage(ctx, value, imagetypes.GetImageOpts{})
 		if err != nil {
@@ -75,6 +77,22 @@ func (i *ImageService) Images(ctx context.Context, opts types.ImageListOptions) 
 		return nil, err
 	}
 
+	err = opts.Filters.WalkValues("until", func(value string) error {
+		ts, err := timetypes.GetTimestamp(value, time.Now())
+		if err != nil {
+			return err
+		}
+		seconds, nanoseconds, err := timetypes.ParseTimestamps(ts, 0)
+		if err != nil {
+			return err
+		}
+		untilFilter = time.Unix(seconds, nanoseconds)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	var selectedImages map[image.ID]*image.Image
 	if danglingOnly {
 		selectedImages = i.imageStore.Heads()
@@ -95,6 +113,9 @@ func (i *ImageService) Images(ctx context.Context, opts types.ImageListOptions) 
 		}
 
 		if !beforeFilter.IsZero() && (img.Created == nil || !img.Created.Before(beforeFilter)) {
+			continue
+		}
+		if !untilFilter.IsZero() && (img.Created == nil || !img.Created.Before(untilFilter)) {
 			continue
 		}
 		if !sinceFilter.IsZero() && (img.Created == nil || !img.Created.After(sinceFilter)) {

@@ -56,6 +56,45 @@ func TestImagesFilterMultiReference(t *testing.T) {
 	}
 }
 
+func TestImagesFilterUntil(t *testing.T) {
+	ctx := setupTest(t)
+
+	client := testEnv.APIClient()
+
+	name := strings.ToLower(t.Name())
+
+	imgs := make([]string, 5)
+	var until string
+	for i := 0; i < 5; i++ {
+		if i > 0 {
+			time.Sleep(time.Millisecond)
+		}
+		ctr := container.Create(ctx, t, client, container.WithName(fmt.Sprintf("%s%d", name, i)))
+		id, err := client.ContainerCommit(ctx, ctr, types.ContainerCommitOptions{Reference: fmt.Sprintf("%s:v%d", name, i)})
+		assert.NilError(t, err)
+		imgs[i] = id.ID
+		if i == 3 {
+			res, err := client.ContainerInspect(ctx, ctr)
+			assert.NilError(t, err)
+			until = res.Created
+		}
+	}
+
+	filter := filters.NewArgs(
+		filters.Arg("since", imgs[0]),
+		filters.Arg("until", until),
+	)
+	list, err := client.ImageList(ctx, types.ImageListOptions{Filters: filter})
+	assert.NilError(t, err)
+
+	var listedIDs []string
+	for _, i := range list {
+		t.Logf("ImageList: ID=%v RepoTags=%v", i.ID, i.RepoTags)
+		listedIDs = append(listedIDs, i.ID)
+	}
+	assert.DeepEqual(t, listedIDs, imgs[1:3], cmpopts.SortSlices(func(a, b string) bool { return a < b }))
+}
+
 func TestImagesFilterBeforeSince(t *testing.T) {
 	ctx := setupTest(t)
 
