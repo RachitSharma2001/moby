@@ -19,7 +19,7 @@ keywords: "API, Docker, rcli, REST, documentation"
 
 * GET `/images/json` now accepts an `until` filter. This accepts a timestamp and
   lists all images created before it. The `<timestamp>` can be Unix timestamps,
-  date formatted   timestamps, or Go duration strings (e.g. `10m`, `1h30m`)
+  date formatted timestamps, or Go duration strings (e.g. `10m`, `1h30m`)
   computed relative to the daemon machine’s time. This change is not versioned,
   and affects all API versions if the daemon has this patch.
 * The `VirtualSize` field in the `GET /images/{name}/json`, `GET /images/json`,
