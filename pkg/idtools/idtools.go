@@ -132,17 +132,21 @@ func (i IdentityMapping) RootPair() Identity {
 // Remapping is only performed if the ids aren't already the remapped root ids
 func (i IdentityMapping) ToHost(pair Identity) (Identity, error) {
 	var err error
+	fmt.Println("in ToHost, here is pair UID and GID: ", pair.UID, pair.GID)
 	target := i.RootPair()
+	fmt.Println("in ToHost, target UID and GID: ", target.UID, target.GID)
 
 	if pair.UID != target.UID {
 		target.UID, err = toHost(pair.UID, i.UIDMaps)
 		if err != nil {
 			return target, err
 		}
+		fmt.Println("in ToHost,remapped target UID to: ", target.UID)
 	}
 
 	if pair.GID != target.GID {
 		target.GID, err = toHost(pair.GID, i.GIDMaps)
+		fmt.Println("in ToHost,remapped target GID to: ", target.GID)
 	}
 	return target, err
 }

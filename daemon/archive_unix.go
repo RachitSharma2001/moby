@@ -148,6 +148,9 @@ func (daemon *Daemon) containerExtractToDir(container *container.Container, path
 			if err != nil {
 				return err
 			}
+		} else {
+			i := options.IDMap.RootPair()
+			options.ChownOpts = &i
 		}
 
 		return archive.Untar(content, absPath, options)
